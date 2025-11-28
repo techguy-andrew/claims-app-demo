@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, use, useMemo, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Reorder, useDragControls, AnimatePresence, LayoutGroup } from 'framer-motion'
 import { toast, Toaster, ToastProvider, ToastRegistry } from '@/_barron-agency/components/Toast'
@@ -12,7 +13,7 @@ import { Button } from '@/_barron-agency/components/Button'
 import { EmptyState } from '@/_barron-agency/components/EmptyState'
 import { Card, CardContent } from '@/_barron-agency/components/Card'
 import { Skeleton } from '@/_barron-agency/components/Skeleton'
-import { useClaim, useUpdateClaim } from '@/lib/hooks/useClaims'
+import { useClaim, useUpdateClaim, useDeleteClaim } from '@/lib/hooks/useClaims'
 import {
   useCreateItem,
   useUpdateItem,
@@ -159,6 +160,7 @@ export default function ClaimDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const router = useRouter()
   const { id: claimId } = use(params)
   const { data: claim, isLoading, error } = useClaim(claimId)
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
@@ -177,6 +179,7 @@ export default function ClaimDetailPage({
   const deleteItemMutation = useDeleteItem()
   const reorderItemsMutation = useReorderItems()
   const updateClaimMutation = useUpdateClaim()
+  const deleteClaimMutation = useDeleteClaim()
 
   // Auto-scroll effect when dragging near viewport edges
   useEffect(() => {
@@ -370,6 +373,18 @@ export default function ClaimDetailPage({
     }
   }
 
+  // Handle deleting the claim
+  const handleDeleteClaim = async () => {
+    try {
+      await deleteClaimMutation.mutateAsync({ id: claimId })
+      toast.success('Claim deleted')
+      router.push('/claims')
+    } catch (error) {
+      toast.error('Failed to delete claim')
+      console.error('Delete claim error:', error)
+    }
+  }
+
   // Handle reordering items with optimistic update
   // Only reorder real items, not draft items
   const handleReorder = async (newOrder: DisplayItem[]) => {
@@ -461,6 +476,7 @@ export default function ClaimDetailPage({
                 claimantAddress: claim.claimantAddress,
               }}
               onSave={handleSaveClaimDetails}
+              onDelete={handleDeleteClaim}
               isSaving={savingClaim}
             />
           )}

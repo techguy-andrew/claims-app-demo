@@ -56,6 +56,8 @@ export interface ClaimDetailsCardProps extends React.HTMLAttributes<HTMLDivEleme
   claim: ClaimDetailsData
   /** Callback when user saves edits */
   onSave?: (data: Partial<ClaimDetailsData>) => void
+  /** Callback when user deletes the claim */
+  onDelete?: () => void
   /** Visual indicator for background save operations */
   isSaving?: boolean
 }
@@ -64,11 +66,13 @@ export function ClaimDetailsCard({
   claim,
   className,
   onSave,
+  onDelete,
   isSaving = false,
   ...props
 }: ClaimDetailsCardProps) {
   const [isEditing, setIsEditing] = React.useState(false)
   const [showCancelConfirm, setShowCancelConfirm] = React.useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
 
   // Editable field refs
   const claimNumberRef = React.useRef<HTMLSpanElement>(null)
@@ -296,6 +300,14 @@ export function ClaimDetailsCard({
                   <DropdownMenuItem onClick={handleEdit}>
                     Edit
                   </DropdownMenuItem>
+                  {onDelete && (
+                    <DropdownMenuItem
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="text-destructive"
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )
@@ -410,6 +422,22 @@ export function ClaimDetailsCard({
         confirmLabel="Discard"
         cancelLabel="Keep Editing"
         isDestructive={true}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmationDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Delete Claim?"
+        description="This will permanently delete this claim and all associated items. This action cannot be undone."
+        onConfirm={() => {
+          setShowDeleteConfirm(false)
+          onDelete?.()
+        }}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isDestructive={true}
+        confirmationText="delete this claim"
       />
     </div>
   )

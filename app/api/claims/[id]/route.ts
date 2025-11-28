@@ -119,3 +119,38 @@ export async function PATCH(
     )
   }
 }
+
+// DELETE /api/claims/[id] - Delete claim and all associated items/attachments
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params
+
+    // Check if claim exists
+    const existingClaim = await prisma.claim.findUnique({
+      where: { id },
+    })
+
+    if (!existingClaim) {
+      return NextResponse.json(
+        { error: 'Claim not found' },
+        { status: 404 }
+      )
+    }
+
+    // Delete the claim (Prisma cascade will handle items and attachments)
+    await prisma.claim.delete({
+      where: { id },
+    })
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Failed to delete claim:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete claim' },
+      { status: 500 }
+    )
+  }
+}

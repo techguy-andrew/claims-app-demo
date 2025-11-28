@@ -259,3 +259,52 @@ export function useUpdateClaim() {
     },
   })
 }
+
+// Delete Claim Mutation with Optimistic Update
+export function useDeleteClaim() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }): Promise<void> => {
+      const response = await fetch(`/api/claims/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to delete claim')
+      }
+    },
+
+    onMutate: async ({ id }) => {
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({ queryKey: ['claims'] })
+      await queryClient.cancelQueries({ queryKey: ['claims', id] })
+
+      // Snapshot previous values
+      const previousClaims = queryClient.getQueryData<ClaimWithCount[]>(['claims'])
+      const previousClaim = queryClient.getQueryData<ClaimWithItems>(['claims', id])
+
+      // Optimistically remove from list
+      queryClient.setQueryData<ClaimWithCount[]>(['claims'], (old) => {
+        if (!old) return old
+        return old.filter((claim) => claim.id !== id)
+      })
+
+      // Remove the individual claim cache
+      queryClient.removeQueries({ queryKey: ['claims', id] })
+
+      return { previousClaims, previousClaim }
+    },
+
+    onError: (err, { id }, context) => {
+      // Rollback on error
+      if (context?.previousClaims) {
+        queryClient.setQueryData(['claims'], context.previousClaims)
+      }
+      if (context?.previousClaim) {
+        queryClient.setQueryData(['claims', id], context.previousClaim)
+      }
+    },
+  })
+}

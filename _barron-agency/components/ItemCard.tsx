@@ -499,6 +499,7 @@ export function ItemCard({
         confirmLabel="Delete"
         cancelLabel="Cancel"
         isDestructive={true}
+        confirmationText="delete this item"
       />
     </div>
   )
