@@ -5,7 +5,6 @@ import dynamic from "next/dynamic"
 import { useDropzone } from "react-dropzone"
 import { CancelIcon } from "../icons/CancelIcon"
 import { DownloadIcon } from "../icons/DownloadIcon"
-import { FileIcon } from "../icons/FileIcon"
 import { UploadIcon } from "../icons/UploadIcon"
 import { SpinnerIcon } from "../icons/SpinnerIcon"
 import { Button } from "./Button"
@@ -23,17 +22,6 @@ const PdfViewer = dynamic(
   }
 )
 
-const PdfThumbnail = dynamic(
-  () => import("./PdfThumbnail").then((mod) => ({ default: mod.PdfThumbnail })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-full flex items-center justify-center">
-        <SpinnerIcon className="h-6 w-6 text-muted-foreground" />
-      </div>
-    ),
-  }
-)
 import {
   Dialog,
   DialogContent,
@@ -50,12 +38,57 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// File type info for styled placeholders
+function getFileTypeInfo(filename: string): { label: string; color: string; extension: string } {
+  const ext = filename.split('.').pop()?.toLowerCase() || 'file'
+
+  const typeMap: Record<string, { label: string; color: string }> = {
+    // PDF
+    'pdf': { label: 'PDF', color: 'bg-red-600' },
+    // Videos
+    'mp4': { label: 'VIDEO', color: 'bg-violet-500' },
+    'mov': { label: 'VIDEO', color: 'bg-violet-500' },
+    'webm': { label: 'VIDEO', color: 'bg-violet-500' },
+    'avi': { label: 'VIDEO', color: 'bg-violet-500' },
+    'mkv': { label: 'VIDEO', color: 'bg-violet-500' },
+    // Documents
+    'doc': { label: 'DOC', color: 'bg-blue-500' },
+    'docx': { label: 'DOC', color: 'bg-blue-500' },
+    'txt': { label: 'TXT', color: 'bg-slate-500' },
+    'rtf': { label: 'RTF', color: 'bg-blue-400' },
+    // Spreadsheets
+    'xls': { label: 'XLS', color: 'bg-green-600' },
+    'xlsx': { label: 'XLS', color: 'bg-green-600' },
+    'csv': { label: 'CSV', color: 'bg-green-500' },
+    // Presentations
+    'ppt': { label: 'PPT', color: 'bg-orange-500' },
+    'pptx': { label: 'PPT', color: 'bg-orange-500' },
+    // Archives
+    'zip': { label: 'ZIP', color: 'bg-amber-600' },
+    'rar': { label: 'RAR', color: 'bg-amber-600' },
+    '7z': { label: '7Z', color: 'bg-amber-600' },
+    // Code/Data
+    'json': { label: 'JSON', color: 'bg-purple-500' },
+    'xml': { label: 'XML', color: 'bg-purple-400' },
+    'html': { label: 'HTML', color: 'bg-red-500' },
+    // Audio
+    'mp3': { label: 'MP3', color: 'bg-pink-500' },
+    'wav': { label: 'WAV', color: 'bg-pink-500' },
+    'm4a': { label: 'M4A', color: 'bg-pink-500' },
+  }
+
+  const info = typeMap[ext] || { label: ext.toUpperCase().slice(0, 4), color: 'bg-slate-400' }
+  return { ...info, extension: ext.toUpperCase() }
+}
+
 interface FileGalleryProps {
   attachments?: Attachment[]
   onFilesAdded?: (files: File[]) => void
   onFileRemove?: (attachmentId: string) => void
   editable?: boolean
   maxFiles?: number
+  /** Read-only mode - hides upload/delete but keeps view/download */
+  readOnly?: boolean
 }
 
 export function FileGallery({
@@ -64,6 +97,7 @@ export function FileGallery({
   onFileRemove,
   editable = true,
   maxFiles = 10,
+  readOnly = false,
 }: FileGalleryProps) {
   const [selectedFile, setSelectedFile] = useState<Attachment | null>(null)
   const [fileToDelete, setFileToDelete] = useState<Attachment | null>(null)
@@ -80,7 +114,7 @@ export function FileGallery({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     maxFiles: maxFiles - attachments.length,
-    disabled: !editable || attachments.length >= maxFiles,
+    disabled: !editable || readOnly || attachments.length >= maxFiles,
   })
 
   const isImage = (type: string) => type.startsWith("image/")
@@ -133,8 +167,8 @@ export function FileGallery({
 
   return (
     <div className="w-full space-y-4">
-      {/* Dropzone */}
-      {editable && attachments.length < maxFiles && (
+      {/* Dropzone - hidden in readOnly mode */}
+      {editable && !readOnly && attachments.length < maxFiles && (
         <div
           {...getRootProps()}
           className={cn(
@@ -178,40 +212,42 @@ export function FileGallery({
                         "w-full h-full object-cover",
                         isUploading && "opacity-50"
                       )}
+                      loading="lazy"
                     />
-                  ) : isPdf(attachment.type) && !isUploading ? (
-                    <PdfThumbnail url={attachment.url} width={200} />
-                  ) : isVideo(attachment.type) && !isUploading ? (
-                    <div className="relative w-full h-full">
-                      <video
-                        src={attachment.url}
-                        className="w-full h-full object-cover"
-                        muted
-                        playsInline
-                        preload="metadata"
-                      />
-                      {/* Play icon overlay */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                        <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
-                          <svg className="w-6 h-6 text-foreground ml-1" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center p-4">
-                      <FileIcon className={cn(
-                        "h-12 w-12 text-muted-foreground mb-2",
-                        isUploading && "opacity-50"
-                      )} />
-                      <p className={cn(
-                        "text-xs text-center text-muted-foreground truncate w-full",
-                        isUploading && "opacity-50"
-                      )}>
-                        {attachment.name}
-                      </p>
-                    </div>
+                    (() => {
+                      const fileInfo = getFileTypeInfo(attachment.name)
+                      const isVideoFile = isVideo(attachment.type)
+                      return (
+                        <div className={cn(
+                          "relative w-full h-full flex flex-col items-center justify-center p-3 bg-muted/50",
+                          isUploading && "opacity-50"
+                        )}>
+                          <div className={cn(
+                            "px-3 py-1.5 rounded-md text-white text-sm font-bold mb-2 shadow-sm",
+                            fileInfo.color
+                          )}>
+                            {fileInfo.label}
+                          </div>
+                          <p className="text-xs text-muted-foreground text-center font-medium">
+                            {isVideoFile ? 'Video' : isPdf(attachment.type) ? 'Document' : `${fileInfo.extension} File`}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/70 truncate w-full text-center mt-1 px-1">
+                            {attachment.name}
+                          </p>
+                          {/* Play icon overlay for videos */}
+                          {isVideoFile && !isUploading && (
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center shadow-md">
+                                <svg className="w-5 h-5 text-foreground ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M8 5v14l11-7z" />
+                                </svg>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()
                   )}
 
                   {/* Upload Progress Overlay */}
@@ -225,8 +261,8 @@ export function FileGallery({
                   )}
                 </div>
 
-              {/* Remove button - disabled during upload */}
-              {editable && onFileRemove && !isUploading && (
+              {/* Remove button - disabled during upload or in readOnly mode */}
+              {editable && !readOnly && onFileRemove && !isUploading && (
                 <button
                   className="absolute top-2 right-2 p-0 m-0 border-0 bg-transparent cursor-pointer outline-none focus:outline-none text-destructive hover:text-destructive/80 hover:opacity-80 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={(e) => handleRemoveClick(e, attachment)}
@@ -290,25 +326,34 @@ export function FileGallery({
                 <source src={selectedFile.url} type={selectedFile.type} />
                 Your browser does not support the video tag.
               </video>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-12">
-                <FileIcon className="h-24 w-24 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">{selectedFile?.name}</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {selectedFile && (selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-                <Button
-                  className="mt-4"
-                  onClick={() => {
-                    if (selectedFile) {
-                      handleDownload(selectedFile)
-                    }
-                  }}
-                >
-                  Download File
-                </Button>
-              </div>
-            )}
+            ) : selectedFile ? (
+              (() => {
+                const fileInfo = getFileTypeInfo(selectedFile.name)
+                return (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className={cn(
+                      "px-6 py-3 rounded-lg text-white text-2xl font-bold mb-4 shadow-md",
+                      fileInfo.color
+                    )}>
+                      {fileInfo.label}
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {fileInfo.extension} Document
+                    </p>
+                    <p className="text-lg font-medium">{selectedFile.name}</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    <Button
+                      className="mt-4"
+                      onClick={() => handleDownload(selectedFile)}
+                    >
+                      Download File
+                    </Button>
+                  </div>
+                )
+              })()
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -22,7 +22,13 @@ export function PdfViewer({
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset page loading when changing pages
+  useEffect(() => {
+    setPageLoading(true);
+  }, [pageNumber]);
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);
@@ -33,7 +39,12 @@ export function PdfViewer({
   function onDocumentLoadError(err: Error) {
     setError("Failed to load PDF");
     setIsLoading(false);
+    setPageLoading(false);
     console.error("PDF load error:", err);
+  }
+
+  function onPageRenderSuccess() {
+    setPageLoading(false);
   }
 
   function goToPreviousPage() {
@@ -49,15 +60,13 @@ export function PdfViewer({
   return (
     <div className={`flex flex-col items-center ${className}`}>
       {/* PDF Document */}
-      <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-100">
-        <Document
-          file={url}
-          onLoadSuccess={onDocumentLoadSuccess}
-          onLoadError={onDocumentLoadError}
-          loading={
-            <div className="flex items-center justify-center p-8 text-gray-500">
+      <div className="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-100">
+        {/* Loading overlay */}
+        {(isLoading || pageLoading) && !error && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100/90 backdrop-blur-sm transition-opacity duration-300">
+            <div className="flex flex-col items-center gap-3">
               <svg
-                className="animate-spin h-6 w-6 mr-2"
+                className="animate-spin h-8 w-8 text-gray-500"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -76,9 +85,15 @@ export function PdfViewer({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              Loading PDF...
+              <span className="text-sm text-gray-500">Loading PDF...</span>
             </div>
-          }
+          </div>
+        )}
+        <Document
+          file={url}
+          onLoadSuccess={onDocumentLoadSuccess}
+          onLoadError={onDocumentLoadError}
+          loading={null}
           error={
             <div className="flex items-center justify-center p-8 text-red-500">
               <svg
@@ -103,6 +118,7 @@ export function PdfViewer({
             width={maxWidth}
             renderTextLayer={true}
             renderAnnotationLayer={true}
+            onRenderSuccess={onPageRenderSuccess}
           />
         </Document>
       </div>

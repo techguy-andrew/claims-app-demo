@@ -79,6 +79,8 @@ export interface ItemCardProps extends Omit<React.HTMLAttributes<HTMLDivElement>
    * Shows loading spinner instead of menu icon when true.
    */
   isSaving?: boolean
+  /** Read-only mode - hides all edit/delete functionality */
+  readOnly?: boolean
 }
 
 export function ItemCard({
@@ -102,6 +104,7 @@ export function ItemCard({
   onFilesAdded,
   onFileRemove,
   isSaving = false,
+  readOnly = false,
   ...props
 }: ItemCardProps) {
   // Handle null/undefined values with proper defaults
@@ -307,7 +310,7 @@ export function ItemCard({
           <div className={cn(
             "flex flex-col gap-2 sm:gap-3 min-w-0 flex-1 select-none cursor-default"
           )}
-            onDoubleClick={() => editable && !isEditing && handleEdit()}
+            onDoubleClick={() => editable && !isEditing && !readOnly && handleEdit()}
           >
             {/* Title */}
             <div
@@ -353,8 +356,8 @@ export function ItemCard({
           </div>
         </div>
 
-        {/* Menu button - absolutely positioned in top right corner */}
-        {(editable || onEdit || onDelete || onDuplicate) && (
+        {/* Menu button - absolutely positioned in top right corner (hidden in readOnly mode) */}
+        {!readOnly && (editable || onEdit || onDelete || onDuplicate) && (
           <div className="absolute top-2 right-2 sm:top-4 sm:right-4 w-[150px] flex justify-end">
             {isEditing ? (
               <div className="flex items-center gap-2">
@@ -469,7 +472,8 @@ export function ItemCard({
               attachments={attachments}
               onFilesAdded={onFilesAdded}
               onFileRemove={onFileRemove}
-              editable={editable}
+              editable={editable && !readOnly}
+              readOnly={readOnly}
               maxFiles={10}
             />
           )}

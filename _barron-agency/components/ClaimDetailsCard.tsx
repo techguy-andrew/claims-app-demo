@@ -45,6 +45,8 @@ export interface ClaimDetailsCardProps extends React.HTMLAttributes<HTMLDivEleme
   onDelete?: () => void
   /** Visual indicator for background save operations */
   isSaving?: boolean
+  /** Read-only mode - hides all edit/delete functionality */
+  readOnly?: boolean
 }
 
 export function ClaimDetailsCard({
@@ -53,6 +55,7 @@ export function ClaimDetailsCard({
   onSave,
   onDelete,
   isSaving = false,
+  readOnly = false,
   ...props
 }: ClaimDetailsCardProps) {
   const [isEditing, setIsEditing] = React.useState(false)
@@ -234,12 +237,13 @@ export function ClaimDetailsCard({
         'rounded-lg border bg-card text-card-foreground shadow-sm w-full transition-shadow',
         className
       )}
-      onDoubleClick={() => !isEditing && handleEdit()}
+      onDoubleClick={() => !isEditing && !readOnly && handleEdit()}
       {...props}
     >
       {/* Card Header */}
       <div className="p-6 relative">
-        {/* Menu button - absolutely positioned in top right corner */}
+        {/* Menu button - absolutely positioned in top right corner (hidden in readOnly mode) */}
+        {!readOnly && (
         <div className="absolute top-4 right-4 w-[150px] flex justify-end">
           {isEditing ? (
             <div className="flex items-center gap-2">
@@ -298,15 +302,16 @@ export function ClaimDetailsCard({
             )
           )}
         </div>
+        )}
 
         {/* Content */}
         <div className="space-y-4 pr-16">
-          {/* Status Row - Always editable */}
+          {/* Status Row */}
           <div className="flex flex-wrap items-center gap-4">
             <ClaimStatusSelector
               status={claim.status}
               onStatusChange={(status) => onSave?.({ status })}
-              disabled={isSaving}
+              disabled={isSaving || readOnly}
             />
           </div>
 

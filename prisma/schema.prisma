@@ -41,10 +41,21 @@ model Claim {
   claimantId       String
   claimant         User        @relation(fields: [claimantId], references: [id], onDelete: Cascade)
   items            Item[]
+  shareLink        ShareLink?
 
   @@index([claimNumber])
   @@index([claimantId])
   @@index([status, createdAt])
+}
+
+model ShareLink {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  claimId   String   @unique
+  claim     Claim    @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([token])
 }
 
 model Item {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { uploadToR2, getPublicUrl, getImageVariantUrl } from "@/lib/r2";
+import { uploadToR2, getPublicUrl } from "@/lib/r2";
+import sharp from "sharp";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
 
@@ -52,7 +53,25 @@ export async function POST(
     // Generate URLs
     const url = getPublicUrl(key);
     const isImage = file.type.startsWith("image/");
-    const thumbnailUrl = isImage ? getImageVariantUrl(key, 150) : null;
+    let thumbnailUrl: string | null = null;
+
+    // Generate and upload thumbnail for images only
+    if (isImage) {
+      try {
+        const thumbnailBuffer = await sharp(buffer)
+          .rotate() // Auto-rotate based on EXIF orientation
+          .resize(300, 300, { fit: "cover", position: "center" })
+          .jpeg({ quality: 80 })
+          .toBuffer();
+
+        const thumbnailKey = `claims/${claimId}/${itemId}/${Date.now()}-${randomId}-thumb.jpg`;
+        await uploadToR2(thumbnailKey, thumbnailBuffer, "image/jpeg");
+        thumbnailUrl = getPublicUrl(thumbnailKey);
+      } catch (thumbError) {
+        console.warn("Failed to generate image thumbnail, using full URL:", thumbError);
+        thumbnailUrl = url; // Fallback to full URL if thumbnail generation fails
+      }
+    }
 
     // Save attachment metadata to database
     const attachment = await prisma.attachment.create({

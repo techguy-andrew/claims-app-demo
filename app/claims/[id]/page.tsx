@@ -10,6 +10,8 @@ import { GripVerticalIcon } from '@/_barron-agency/icons/GripVerticalIcon'
 import { ItemCard } from '@/_barron-agency/components/ItemCard'
 import { ClaimDetailsCard, type ClaimDetailsData } from '@/_barron-agency/components/ClaimDetailsCard'
 import { Button } from '@/_barron-agency/components/Button'
+import { DownloadClaimPDF } from '@/_barron-agency/components/DownloadClaimPDF'
+import { ShareClaimButton } from '@/_barron-agency/components/ShareClaimButton'
 import { EmptyState } from '@/_barron-agency/components/EmptyState'
 import { Card, CardContent } from '@/_barron-agency/components/Card'
 import { Skeleton } from '@/_barron-agency/components/Skeleton'
@@ -525,15 +527,19 @@ export default function ClaimDetailPage({
             />
           )}
 
-          {/* Items Section */}
-          <div className="flex items-center justify-between">
+          {/* Actions Bar */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="text-sm text-muted-foreground">
               {realItems.length} {realItems.length === 1 ? 'item' : 'items'}
             </div>
-            <Button onClick={handleNewItem} className="gap-2" disabled={!!draftItem}>
-              <PlusIcon className="h-4 w-4" />
-              Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <DownloadClaimPDF claimId={claimId} claimNumber={claim?.claimNumber || ''} />
+              <ShareClaimButton claimId={claimId} />
+              <Button onClick={handleNewItem} className="gap-2" disabled={!!draftItem}>
+                <PlusIcon className="h-4 w-4" />
+                Add Item
+              </Button>
+            </div>
           </div>
 
           {/* Items List - unified rendering for both draft and real items */}
