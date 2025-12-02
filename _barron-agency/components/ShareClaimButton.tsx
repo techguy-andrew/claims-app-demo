@@ -16,6 +16,30 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Fallback clipboard function that works after async operations
+// (navigator.clipboard.writeText can fail if user gesture timing expires)
+async function copyToClipboard(text: string): Promise<void> {
+  // Try modern API first
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch {
+      // Fall through to fallback
+    }
+  }
+
+  // Fallback: create temporary textarea
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
+}
+
 interface ShareClaimButtonProps {
   /** The claim ID to share */
   claimId: string
@@ -68,7 +92,7 @@ export function ShareClaimButton({
       }
 
       const url = buildShareUrl(token)
-      await navigator.clipboard.writeText(url)
+      await copyToClipboard(url)
       toast.success('Share link copied to clipboard')
       setIsOpen(false)
     } catch (error) {
