@@ -1,85 +1,14 @@
 "use client"
 
 import React, { useState, useCallback } from "react"
-import dynamic from "next/dynamic"
 import { useDropzone } from "react-dropzone"
 import { CancelIcon } from "../icons/CancelIcon"
-import { DownloadIcon } from "../icons/DownloadIcon"
 import { UploadIcon } from "../icons/UploadIcon"
 import { SpinnerIcon } from "../icons/SpinnerIcon"
-import { Button } from "./Button"
-
-// Dynamic imports to avoid SSR issues with pdf.js (uses browser APIs like DOMMatrix)
-const PdfViewer = dynamic(
-  () => import("./PdfViewer").then((mod) => ({ default: mod.PdfViewer })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex items-center justify-center p-8 text-muted-foreground">
-        Loading PDF viewer...
-      </div>
-    ),
-  }
-)
-
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./Dialog"
+import { FilePreviewDialog } from "./FilePreviewDialog"
 import { ConfirmationDialog } from "./ConfirmationDialog"
 import type { Attachment } from "../types"
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-// Inline utility for merging Tailwind classes - makes component portable
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-
-// File type info for styled placeholders
-function getFileTypeInfo(filename: string): { label: string; color: string; extension: string } {
-  const ext = filename.split('.').pop()?.toLowerCase() || 'file'
-
-  const typeMap: Record<string, { label: string; color: string }> = {
-    // PDF
-    'pdf': { label: 'PDF', color: 'bg-red-600' },
-    // Videos
-    'mp4': { label: 'VIDEO', color: 'bg-violet-500' },
-    'mov': { label: 'VIDEO', color: 'bg-violet-500' },
-    'webm': { label: 'VIDEO', color: 'bg-violet-500' },
-    'avi': { label: 'VIDEO', color: 'bg-violet-500' },
-    'mkv': { label: 'VIDEO', color: 'bg-violet-500' },
-    // Documents
-    'doc': { label: 'DOC', color: 'bg-blue-500' },
-    'docx': { label: 'DOC', color: 'bg-blue-500' },
-    'txt': { label: 'TXT', color: 'bg-slate-500' },
-    'rtf': { label: 'RTF', color: 'bg-blue-400' },
-    // Spreadsheets
-    'xls': { label: 'XLS', color: 'bg-green-600' },
-    'xlsx': { label: 'XLS', color: 'bg-green-600' },
-    'csv': { label: 'CSV', color: 'bg-green-500' },
-    // Presentations
-    'ppt': { label: 'PPT', color: 'bg-orange-500' },
-    'pptx': { label: 'PPT', color: 'bg-orange-500' },
-    // Archives
-    'zip': { label: 'ZIP', color: 'bg-amber-600' },
-    'rar': { label: 'RAR', color: 'bg-amber-600' },
-    '7z': { label: '7Z', color: 'bg-amber-600' },
-    // Code/Data
-    'json': { label: 'JSON', color: 'bg-purple-500' },
-    'xml': { label: 'XML', color: 'bg-purple-400' },
-    'html': { label: 'HTML', color: 'bg-red-500' },
-    // Audio
-    'mp3': { label: 'MP3', color: 'bg-pink-500' },
-    'wav': { label: 'WAV', color: 'bg-pink-500' },
-    'm4a': { label: 'M4A', color: 'bg-pink-500' },
-  }
-
-  const info = typeMap[ext] || { label: ext.toUpperCase().slice(0, 4), color: 'bg-slate-400' }
-  return { ...info, extension: ext.toUpperCase() }
-}
+import { cn, getFileTypeInfo } from "../utils/utils"
 
 interface FileGalleryProps {
   attachments?: Attachment[]
@@ -131,38 +60,6 @@ export function FileGallery({
       onFileRemove(fileToDelete.id)
     }
     setFileToDelete(null)
-  }
-
-  const handleDownload = async (attachment: Attachment) => {
-    try {
-      // Build query params with publicId for server-side signed URL generation
-      const resourceType = attachment.type.startsWith('image/') ? 'image' : 'raw'
-      const params = new URLSearchParams({
-        publicId: attachment.publicId,
-        resourceType,
-        filename: attachment.name,
-      })
-      if (attachment.format) params.set('format', attachment.format)
-
-      const response = await fetch(`/api/download?${params}`)
-      if (!response.ok) {
-        throw new Error('Download failed')
-      }
-
-      const blob = await response.blob()
-      const blobUrl = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = blobUrl
-      link.download = attachment.name
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
-    } catch (error) {
-      console.error('Download error:', error)
-      // Fallback to opening in new tab if download fails
-      window.open(attachment.url, '_blank')
-    }
   }
 
   return (
@@ -288,75 +185,11 @@ export function FileGallery({
       )}
 
       {/* Preview Dialog */}
-      <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
-        <DialogContent className="max-w-4xl">
-          {/* Download button - positioned next to close button */}
-          <button
-            className="absolute right-14 top-4 p-0 m-0 border-0 bg-transparent cursor-pointer outline-none focus:outline-none hover:opacity-80 transition-opacity"
-            onClick={() => {
-              if (selectedFile) {
-                handleDownload(selectedFile)
-              }
-            }}
-            aria-label="Download file"
-          >
-            <DownloadIcon className="h-8 w-8" />
-          </button>
-          <DialogHeader>
-            <DialogTitle>{selectedFile?.name}</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4">
-            {selectedFile && isImage(selectedFile.type) ? (
-              <img
-                src={selectedFile.url}
-                alt={selectedFile.name}
-                className="w-full h-auto max-h-[70vh] object-contain"
-              />
-            ) : selectedFile && isPdf(selectedFile.type) ? (
-              <div className="max-h-[70vh] overflow-auto">
-                <PdfViewer url={selectedFile.url} maxWidth={700} />
-              </div>
-            ) : selectedFile && isVideo(selectedFile.type) ? (
-              <video
-                controls
-                autoPlay
-                className="w-full max-h-[70vh] rounded-lg"
-                src={selectedFile.url}
-              >
-                <source src={selectedFile.url} type={selectedFile.type} />
-                Your browser does not support the video tag.
-              </video>
-            ) : selectedFile ? (
-              (() => {
-                const fileInfo = getFileTypeInfo(selectedFile.name)
-                return (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <div className={cn(
-                      "px-6 py-3 rounded-lg text-white text-2xl font-bold mb-4 shadow-md",
-                      fileInfo.color
-                    )}>
-                      {fileInfo.label}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {fileInfo.extension} Document
-                    </p>
-                    <p className="text-lg font-medium">{selectedFile.name}</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                    <Button
-                      className="mt-4"
-                      onClick={() => handleDownload(selectedFile)}
-                    >
-                      Download File
-                    </Button>
-                  </div>
-                )
-              })()
-            ) : null}
-          </div>
-        </DialogContent>
-      </Dialog>
+      <FilePreviewDialog
+        file={selectedFile}
+        open={!!selectedFile}
+        onOpenChange={(open) => !open && setSelectedFile(null)}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmationDialog

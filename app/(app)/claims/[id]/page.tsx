@@ -132,11 +132,12 @@ function ReorderableItem({
       onDragEnd={onDragEnd}
     >
       <div className="flex items-start gap-2 w-full">
-        {/* Drag Handle - disabled for draft items */}
+        {/* Drag Handle - disabled for draft items, touch-none enables mobile drag */}
         <div
-          className={`flex-shrink-0 pt-6 ${itemIsDraft ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+          className={`flex-shrink-0 py-4 px-2 -my-1 touch-none select-none ${itemIsDraft ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
           onPointerDown={(e) => {
             if (!isEditing && !itemIsDraft) {
+              e.stopPropagation()
               dragControls.start(e)
             }
           }}
@@ -498,13 +499,19 @@ export default function ClaimDetailPage({
       <Toaster />
       <div className="min-h-screen bg-background">
         <div className="max-w-[1200px] w-full mx-auto px-6 py-4 space-y-6">
-          {/* Back Link */}
-          <Link
-            href="/claims"
-            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Back to Claims
-          </Link>
+          {/* Header with Back Link and Actions */}
+          <div className="flex items-center justify-between">
+            <Link
+              href="/claims"
+              className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              ← Back to Claims
+            </Link>
+            <div className="flex items-center gap-2">
+              <DownloadClaimPDF claimId={claimId} claimNumber={claim?.claimNumber || ''} />
+              <ShareClaimButton claimId={claimId} />
+            </div>
+          </div>
 
           {/* Claim Info Card */}
           {claim && (
@@ -532,14 +539,10 @@ export default function ClaimDetailPage({
             <div className="text-sm text-muted-foreground">
               {realItems.length} {realItems.length === 1 ? 'item' : 'items'}
             </div>
-            <div className="flex items-center gap-2">
-              <DownloadClaimPDF claimId={claimId} claimNumber={claim?.claimNumber || ''} />
-              <ShareClaimButton claimId={claimId} />
-              <Button onClick={handleNewItem} className="gap-2" disabled={!!draftItem}>
-                <PlusIcon className="h-4 w-4" />
-                Add Item
-              </Button>
-            </div>
+            <Button onClick={handleNewItem} className="gap-2" disabled={!!draftItem}>
+              <PlusIcon className="h-4 w-4" />
+              Add Item
+            </Button>
           </div>
 
           {/* Items List - unified rendering for both draft and real items */}
