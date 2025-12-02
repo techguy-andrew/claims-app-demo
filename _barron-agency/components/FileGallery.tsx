@@ -109,7 +109,6 @@ export function FileGallery({
                         "w-full h-full object-cover",
                         isUploading && "opacity-50"
                       )}
-                      loading="lazy"
                     />
                   ) : (
                     (() => {
