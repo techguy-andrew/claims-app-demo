@@ -92,6 +92,9 @@ html {
   touch-action: manipulation;
   /* Prevent text size adjustment on orientation change */
   -webkit-text-size-adjust: 100%;
+  /* Lock to viewport height - prevents unnecessary scroll on mobile */
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -100,8 +103,7 @@ body {
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   /* Prevent pull-to-refresh and overscroll effects */
   overscroll-behavior: none;
-  /* Disable horizontal scrolling */
-  overflow-x: hidden;
-  /* Only show vertical scrollbar when content overflows */
-  overflow-y: auto;
+  /* Lock to viewport - only inner content scrolls */
+  height: 100%;
+  overflow: hidden;
 }
