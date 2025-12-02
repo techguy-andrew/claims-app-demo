@@ -58,7 +58,7 @@ export default function SharedClaimPage({
   if (error) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-[1200px] w-full mx-auto px-6 py-4 space-y-6">
+        <div className="p-8 space-y-6">
           <EmptyState
             title="Shared Link Not Found"
             description="This shared link may have been revoked or does not exist."
@@ -71,7 +71,7 @@ export default function SharedClaimPage({
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-[1200px] w-full mx-auto px-6 py-4 space-y-6">
+        <div className="p-8 space-y-6">
           <Skeleton className="h-10 w-1/2" />
           <Card>
             <CardContent className="p-6 space-y-4">
@@ -94,7 +94,7 @@ export default function SharedClaimPage({
   return (
     <div className="min-h-screen bg-background">
       <TopBar />
-      <div className="max-w-[1200px] w-full mx-auto px-6 pt-20 pb-4 space-y-6">
+      <div className="px-8 pt-24 pb-8 space-y-6">
         {/* Claim Info Card */}
         {claim && (
           <ClaimDetailsCard
