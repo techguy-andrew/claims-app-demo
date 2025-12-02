@@ -65,10 +65,12 @@ export function StatusFilterDropdown({
     } else {
       onStatusChange([...selectedStatuses, status])
     }
+    setOpen(false)
   }
 
   const handleClear = () => {
     onStatusChange([])
+    setOpen(false)
   }
 
   // Calculate position based on trigger element
@@ -181,20 +183,22 @@ export function StatusFilterDropdown({
                 left: position.left,
               }}
             >
-              {/* Clear option at top */}
-              {hasSelections && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    className="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-2 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground text-muted-foreground"
-                  >
-                    <CloseIcon size={16} className="opacity-70" />
-                    <span>Clear selection</span>
-                  </button>
-                  <div className="-mx-1 my-1 h-px bg-muted" />
-                </>
-              )}
+              {/* Clear option at top - always visible, disabled when no selections */}
+              <button
+                type="button"
+                onClick={handleClear}
+                disabled={!hasSelections}
+                className={cn(
+                  "relative flex w-full select-none items-center gap-2 rounded-sm px-2 py-2 text-sm outline-none transition-colors",
+                  hasSelections
+                    ? "cursor-pointer hover:bg-accent hover:text-accent-foreground text-muted-foreground"
+                    : "cursor-not-allowed opacity-50 text-muted-foreground"
+                )}
+              >
+                <CloseIcon size={16} className="opacity-70" />
+                <span>Clear selection</span>
+              </button>
+              <div className="-mx-1 my-1 h-px bg-muted" />
 
               {/* Status options */}
               {STATUS_OPTIONS.map((option) => {
