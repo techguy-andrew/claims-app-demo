@@ -87,8 +87,17 @@
   border-color: hsl(var(--border));
 }
 
+html {
+  /* Prevent double-tap zoom on iOS */
+  touch-action: manipulation;
+  /* Prevent text size adjustment on orientation change */
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  /* Prevent pull-to-refresh and overscroll effects */
+  overscroll-behavior: none;
 }
