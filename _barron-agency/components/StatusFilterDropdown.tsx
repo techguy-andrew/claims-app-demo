@@ -137,7 +137,7 @@ export function StatusFilterDropdown({
   // Render trigger content based on selections
   const renderTriggerContent = () => {
     if (!hasSelections) {
-      return <span className="text-muted-foreground">All Statuses</span>
+      return <span className="text-muted-foreground">Status</span>
     }
 
     if (selectedStatuses.length === 1) {

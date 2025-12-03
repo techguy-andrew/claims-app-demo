@@ -86,7 +86,7 @@ export function Sidebar({
         {/* Footer */}
         <div className="p-4 border-t">
           <div className="text-xs text-muted-foreground">
-            Claims App v1.0
+            Claims App v1.1
           </div>
         </div>
       </motion.aside>
@@ -161,7 +161,7 @@ export function Sidebar({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="text-xs text-muted-foreground"
           >
-            Claims App v1.0
+            Claims App v1.1
           </motion.div>
         )}
       </div>
