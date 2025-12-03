@@ -93,7 +93,7 @@ export default function SharedClaimPage({
 
   return (
     <div className="min-h-screen bg-background">
-      <TopBar />
+      <TopBar disableBrandLink />
       <div className="px-8 pt-24 pb-8 space-y-6">
         {/* Claim Info Card */}
         {claim && (

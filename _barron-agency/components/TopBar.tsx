@@ -24,6 +24,8 @@ export interface TopBarProps extends React.HTMLAttributes<HTMLElement> {
   sidebarCollapsed?: boolean
   /** Whether this is mobile view (controls which icon to show) */
   isMobile?: boolean
+  /** Whether to disable the brand link (for public pages) */
+  disableBrandLink?: boolean
 }
 
 export function TopBar({
@@ -32,6 +34,7 @@ export function TopBar({
   onSidebarToggle,
   sidebarCollapsed = false,
   isMobile = false,
+  disableBrandLink = false,
   className,
   ...props
 }: TopBarProps) {
@@ -70,17 +73,28 @@ export function TopBar({
           )}
 
           {/* Brand */}
-          <Link
-            href={BRAND.href}
-            className={cn(
-              'font-semibold text-lg',
-              'hover:opacity-80 transition-opacity',
-              'ml-2'
-            )}
-            aria-label={`${BRAND.name} - ${BRAND.description}`}
-          >
-            {BRAND.name}
-          </Link>
+          {disableBrandLink ? (
+            <span
+              className={cn(
+                'font-semibold text-lg',
+                'ml-2'
+              )}
+            >
+              {BRAND.name}
+            </span>
+          ) : (
+            <Link
+              href={BRAND.href}
+              className={cn(
+                'font-semibold text-lg',
+                'hover:opacity-80 transition-opacity',
+                'ml-2'
+              )}
+              aria-label={`${BRAND.name} - ${BRAND.description}`}
+            >
+              {BRAND.name}
+            </Link>
+          )}
         </div>
 
         {/* Center content slot */}
