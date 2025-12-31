@@ -8,6 +8,7 @@ import { toast, Toaster, ToastProvider, ToastRegistry } from '@/_barron-agency/c
 import { PlusIcon } from '@/_barron-agency/icons/PlusIcon'
 import { GripVerticalIcon } from '@/_barron-agency/icons/GripVerticalIcon'
 import { ItemCard } from '@/_barron-agency/components/ItemCard'
+import { EditItemDialog } from '@/_barron-agency/components/EditItemDialog'
 import { ClaimDetailsCard, type ClaimDetailsData } from '@/_barron-agency/components/ClaimDetailsCard'
 import { Button } from '@/_barron-agency/components/Button'
 import { DownloadClaimPDF } from '@/_barron-agency/components/DownloadClaimPDF'
@@ -25,45 +26,21 @@ import {
 } from '@/lib/hooks/useItems'
 import { useAddAttachments, useRemoveAttachment } from '@/lib/hooks/useAttachments'
 
-// Draft item type that can be mixed with real items
-interface DraftItem {
-  id: string
-  title: string
-  description: string
-  order: number
-  claimId: string
-  createdAt: Date
-  updatedAt: Date
-  attachments: []
-  isDraft: true
-}
-
-// Combined type for items array (real items + draft)
-type DisplayItem = ItemWithAttachments | DraftItem
-
-function isDraftItem(item: DisplayItem): item is DraftItem {
-  return 'isDraft' in item && item.isDraft === true
-}
-
 // Auto-scroll configuration
 const SCROLL_THRESHOLD = 80  // pixels from viewport edge to start scrolling
 const MAX_SCROLL_SPEED = 12  // max pixels per frame
 
-// ReorderableItem component for drag-and-drop - handles both draft and real items
+// ReorderableItem component for drag-and-drop
 interface ReorderableItemProps {
-  item: DisplayItem
+  item: ItemWithAttachments
   claimId: string
-  editingItemId: string | null
-  onEdit: (id: string) => void
-  onSave: (id: string, data: { title: string; description: string }) => void
-  onCancel: (id: string) => void
-  onDelete: (id: string) => void
-  onFilesAdded?: (itemId: string, files: File[]) => void
-  onFileRemove?: (itemId: string, attachmentId: string) => void
+  onEdit: () => void
+  onDelete: () => void
+  onFilesAdded?: (files: File[]) => void
+  onFileRemove?: (attachmentId: string) => void
   onDragStart?: () => void
   onDragEnd?: () => void
   constraintsRef?: React.RefObject<HTMLDivElement | null>
-  autoFocus?: boolean
   isSaving?: boolean
   isResizing?: boolean
   isDragging?: boolean
@@ -74,17 +51,13 @@ interface ReorderableItemProps {
 function ReorderableItem({
   item,
   claimId,
-  editingItemId,
   onEdit,
-  onSave,
-  onCancel,
   onDelete,
   onFilesAdded,
   onFileRemove,
   onDragStart,
   onDragEnd,
   constraintsRef,
-  autoFocus,
   isSaving,
   isResizing,
   isDragging,
@@ -92,13 +65,9 @@ function ReorderableItem({
   onToggleFilesExpanded,
 }: ReorderableItemProps) {
   const dragControls = useDragControls()
-  const isEditing = editingItemId === item.id
-  const itemIsDraft = isDraftItem(item)
 
   // Memoize attachments transformation to prevent infinite re-render loop
-  // Draft items have empty attachments array
   const attachments = useMemo(() => {
-    if (itemIsDraft) return []
     return item.attachments.map((a) => ({
       id: a.id,
       name: a.filename,
@@ -111,42 +80,36 @@ function ReorderableItem({
       publicId: a.publicId,
       format: a.format,
     }))
-  }, [item, itemIsDraft])
+  }, [item.attachments])
 
   // Content shared between both render paths
   const content = (
     <div className="flex items-start gap-2 w-full">
-      {/* Drag Handle - disabled for draft items and during resize */}
+      {/* Drag Handle */}
       <div
-        className={`flex-shrink-0 py-4 px-2 -my-1 touch-none select-none ${itemIsDraft ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+        className="flex-shrink-0 py-4 px-2 -my-1 touch-none select-none cursor-grab active:cursor-grabbing"
         onPointerDown={(e) => {
-          if (!isEditing && !itemIsDraft && !isResizing) {
+          if (!isResizing) {
             e.stopPropagation()
             dragControls.start(e)
           }
         }}
       >
-        <GripVerticalIcon className={`h-5 w-5 ${itemIsDraft ? 'text-muted-foreground/30' : 'text-muted-foreground hover:text-foreground'} transition-colors`} />
+        <GripVerticalIcon className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
       </div>
 
-      {/* Item Card */}
+      {/* Item Card - display only, editing via dialog */}
       <div className="flex-1 min-w-0">
         <ItemCard
-          itemId={itemIsDraft ? undefined : item.id}
+          itemId={item.id}
           title={item.title}
           description={item.description}
-          editable={true}
-          onEdit={() => onEdit(item.id)}
-          onSave={(data) => onSave(item.id, data)}
-          onCancel={() => onCancel(item.id)}
-          onDelete={itemIsDraft ? undefined : () => onDelete(item.id)}
-          autoFocus={autoFocus}
+          onEdit={onEdit}
+          onDelete={onDelete}
           attachments={attachments}
-          onFilesAdded={itemIsDraft ? undefined : (files) => onFilesAdded?.(item.id, files)}
-          onFileRemove={itemIsDraft ? undefined : (attachmentId) => onFileRemove?.(item.id, attachmentId)}
+          onFilesAdded={onFilesAdded}
+          onFileRemove={onFileRemove}
           isSaving={isSaving}
-          titlePlaceholder="Enter item title..."
-          descriptionPlaceholder="Enter item description..."
           isFilesExpanded={isFilesExpanded}
           onToggleFilesExpanded={onToggleFilesExpanded}
         />
@@ -198,13 +161,12 @@ export default function ClaimDetailPage({
   const router = useRouter()
   const { id: claimId } = use(params)
   const { data: claim, isLoading, error } = useClaim(claimId)
-  const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
   const [savingClaim, setSavingClaim] = useState(false)
-  const [draftItem, setDraftItem] = useState<DraftItem | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
+  const [editingItem, setEditingItem] = useState<ItemWithAttachments | null>(null)
   const stableKeysRef = useRef<Map<string, string>>(new Map())
   const pointerYRef = useRef(0)
   const animationFrameRef = useRef<number | null>(null)
@@ -303,90 +265,44 @@ export default function ClaimDetailPage({
     })
   }, [])
 
-  // Combine draft item with real items into a single array for unified rendering
-  const realItems = claim?.items ?? []
-  const displayItems: DisplayItem[] = useMemo(() => {
-    if (draftItem) {
-      return [draftItem, ...realItems]
-    }
-    return realItems
-  }, [draftItem, realItems])
+  const items = claim?.items ?? []
 
-  // Handle adding a new item - creates a local draft at the top of the list
-  const handleNewItem = () => {
-    // Don't allow creating another draft if one exists
-    if (draftItem) return
-
-    const draftId = `draft-${Date.now()}`
-    const newDraft: DraftItem = {
-      id: draftId,
-      title: '',
-      description: '',
-      order: -1, // Place at top
-      claimId,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      attachments: [],
-      isDraft: true,
+  // Handle adding a new item - creates item then opens edit dialog
+  const handleNewItem = async () => {
+    try {
+      const newItem = await createItemMutation.mutateAsync({
+        claimId,
+        title: '',
+        description: '',
+        order: 0,
+      })
+      // Open edit dialog for the new item
+      setEditingItem(newItem)
+    } catch (error) {
+      toast.error('Failed to create item')
+      console.error('Create error:', error)
     }
-    setDraftItem(newDraft)
-    setEditingItemId(draftId)
   }
 
-  // Handle editing an item
-  const handleEdit = (id: string) => {
-    setEditingItemId(id)
-  }
+  // Handle saving an item from the edit dialog
+  const handleSaveItem = async (data: { title: string; description: string }) => {
+    if (!editingItem) return
 
-  // Handle saving an item with optimistic update
-  const handleSave = async (id: string, data: { title: string; description: string }) => {
     // Validate that title is not empty
     if (!data.title.trim()) {
       toast.error('Title is required')
       return
     }
 
-    setSavingItemId(id)
+    setSavingItemId(editingItem.id)
 
-    // Check if this is a draft item (new item not yet in DB)
-    if (draftItem && draftItem.id === id) {
-      try {
-        // Update the draft item's content optimistically while saving
-        // This keeps the content visible during the save
-        setDraftItem({
-          ...draftItem,
-          title: data.title,
-          description: data.description,
-        })
-
-        await createItemMutation.mutateAsync({
-          claimId,
-          title: data.title,
-          description: data.description,
-          order: 0,
-        })
-
-        // Clear the draft - the real item now exists in the cache
-        setDraftItem(null)
-        setEditingItemId(null)
-        toast.success('Item created')
-      } catch (error) {
-        toast.error('Failed to create item')
-        console.error('Create error:', error)
-      } finally {
-        setSavingItemId(null)
-      }
-      return
-    }
-
-    // Existing item - update it
     try {
       await updateItemMutation.mutateAsync({
         claimId,
-        id,
+        id: editingItem.id,
         ...data,
       })
-      setEditingItemId(null)
+      setEditingItem(null)
       toast.success('Item saved')
     } catch (error) {
       toast.error('Failed to save item')
@@ -396,28 +312,11 @@ export default function ClaimDetailPage({
     }
   }
 
-  // Handle canceling edit
-  const handleCancel = (id: string) => {
-    // If it's a draft item, just remove it locally (no DB call needed)
-    if (draftItem && draftItem.id === id) {
-      setDraftItem(null)
-      setEditingItemId(null)
-      return
-    }
-
-    setEditingItemId(null)
-  }
-
   // Handle deleting an item with optimistic update
   const handleDelete = async (id: string) => {
     try {
       await deleteItemMutation.mutateAsync({ claimId, id })
       stableKeysRef.current.delete(id)
-
-      if (editingItemId === id) {
-        setEditingItemId(null)
-      }
-
       toast.success('Item deleted')
     } catch (error) {
       toast.error('Failed to delete item')
@@ -485,12 +384,8 @@ export default function ClaimDetailPage({
   }
 
   // Handle reordering items with optimistic update
-  // Only reorder real items, not draft items
-  const handleReorder = async (newOrder: DisplayItem[]) => {
-    // Filter out draft items - they shouldn't be reordered
-    const realItemsOnly = newOrder.filter((item): item is ItemWithAttachments => !isDraftItem(item))
-
-    const reorderedItems = realItemsOnly.map((item, index) => ({
+  const handleReorder = async (newOrder: ItemWithAttachments[]) => {
+    const reorderedItems = newOrder.map((item, index) => ({
       id: item.id,
       order: index,
     }))
@@ -589,17 +484,17 @@ export default function ClaimDetailPage({
           {/* Actions Bar */}
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="text-sm text-muted-foreground">
-              {realItems.length} {realItems.length === 1 ? 'item' : 'items'}
+              {items.length} {items.length === 1 ? 'item' : 'items'}
             </div>
-            <Button onClick={handleNewItem} className="gap-2" disabled={!!draftItem}>
+            <Button onClick={handleNewItem} className="gap-2">
               <PlusIcon className="h-4 w-4" />
               Add Item
             </Button>
           </div>
 
-          {/* Items List - unified rendering for both draft and real items */}
+          {/* Items List */}
           <div className="flex flex-col gap-4 w-full">
-            {displayItems.length === 0 ? (
+            {items.length === 0 ? (
               <EmptyState
                 title="No items yet"
                 description="Click 'Add Item' to add items to this claim."
@@ -608,11 +503,11 @@ export default function ClaimDetailPage({
               <div ref={constraintsRef}>
                 <Reorder.Group
                   axis="y"
-                  values={displayItems}
+                  values={items}
                   onReorder={handleReorder}
                   className="flex flex-col gap-4 w-full touch-pan-y"
                 >
-                  {displayItems.map((item) => {
+                  {items.map((item) => {
                     const stableKey = stableKeysRef.current.get(item.id) || item.id
 
                     return (
@@ -620,17 +515,13 @@ export default function ClaimDetailPage({
                         key={stableKey}
                         item={item}
                         claimId={claimId}
-                        editingItemId={editingItemId}
-                        onEdit={handleEdit}
-                        onSave={handleSave}
-                        onCancel={handleCancel}
-                        onDelete={handleDelete}
-                        onFilesAdded={handleFilesAdded}
-                        onFileRemove={handleFileRemove}
+                        onEdit={() => setEditingItem(item)}
+                        onDelete={() => handleDelete(item.id)}
+                        onFilesAdded={(files) => handleFilesAdded(item.id, files)}
+                        onFileRemove={(attachmentId) => handleFileRemove(item.id, attachmentId)}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         constraintsRef={constraintsRef}
-                        autoFocus={editingItemId === item.id}
                         isSaving={savingItemId === item.id}
                         isResizing={isResizing}
                         isDragging={isDragging}
@@ -645,6 +536,15 @@ export default function ClaimDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Edit Item Dialog */}
+      <EditItemDialog
+        open={editingItem !== null}
+        onOpenChange={(open) => !open && setEditingItem(null)}
+        title={editingItem?.title || ''}
+        description={editingItem?.description || ''}
+        onSave={handleSaveItem}
+      />
     </ToastProvider>
   )
 }

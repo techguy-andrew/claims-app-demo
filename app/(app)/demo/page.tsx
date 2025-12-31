@@ -7,10 +7,11 @@ import { PlusIcon } from "@/_barron-agency/icons/PlusIcon"
 import { GripVerticalIcon } from "@/_barron-agency/icons/GripVerticalIcon"
 import { useQueryClient } from "@tanstack/react-query"
 import { ItemCard } from "@/_barron-agency/components/ItemCard"
+import { EditItemDialog } from "@/_barron-agency/components/EditItemDialog"
 import { Button } from "@/_barron-agency/components/Button"
 import { PageHeader } from "@/_barron-agency/components/PageHeader"
 import { EmptyState } from "@/_barron-agency/components/EmptyState"
-import type { Item, Attachment } from "@/_barron-agency/types"
+import type { Item } from "@/_barron-agency/types"
 import {
   useCreateItem,
   useUpdateItem,
@@ -31,33 +32,24 @@ function generateId(): string {
 // ReorderableItem component for drag-and-drop
 interface ReorderableItemProps {
   item: Item
-  editingItemId: string | null
-  onEdit: (id: string) => void
-  onSave: (id: string, data: { title: string; description: string }) => void
-  onCancel: (id: string) => void
-  onDelete: (id: string) => void
-  onDuplicate: (id: string) => void
-  onFilesAdded: (itemId: string, files: File[]) => void
-  onFileRemove: (itemId: string, attachmentId: string) => void
-  autoFocus?: boolean
+  onEdit: () => void
+  onDelete: () => void
+  onDuplicate: () => void
+  onFilesAdded: (files: File[]) => void
+  onFileRemove: (attachmentId: string) => void
   isSaving?: boolean
 }
 
 function ReorderableItem({
   item,
-  editingItemId,
   onEdit,
-  onSave,
-  onCancel,
   onDelete,
   onDuplicate,
   onFilesAdded,
   onFileRemove,
-  autoFocus,
   isSaving,
 }: ReorderableItemProps) {
   const dragControls = useDragControls()
-  const isEditing = editingItemId === item.id
 
   return (
     <Reorder.Item
@@ -76,30 +68,24 @@ function ReorderableItem({
         <div
           className="flex-shrink-0 cursor-grab active:cursor-grabbing pt-6"
           onPointerDown={(e) => {
-            if (!isEditing) {
-              dragControls.start(e)
-            }
+            dragControls.start(e)
           }}
         >
           <GripVerticalIcon className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
         </div>
 
-        {/* Item Card */}
+        {/* Item Card - display only, editing via dialog */}
         <div className="flex-1 min-w-0">
           <ItemCard
             itemId={item.id}
             title={item.title}
             description={item.description}
-            editable={true}
-            onEdit={() => onEdit(item.id)}
-            onSave={(data) => onSave(item.id, data)}
-            onCancel={() => onCancel(item.id)}
-            onDelete={() => onDelete(item.id)}
-            onDuplicate={() => onDuplicate(item.id)}
-            autoFocus={autoFocus}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onDuplicate={onDuplicate}
             attachments={item.attachments}
-            onFilesAdded={(files) => onFilesAdded(item.id, files)}
-            onFileRemove={(attachmentId) => onFileRemove(item.id, attachmentId)}
+            onFilesAdded={onFilesAdded}
+            onFileRemove={onFileRemove}
             isSaving={isSaving}
           />
         </div>
@@ -111,7 +97,7 @@ function ReorderableItem({
 export default function DemoPage() {
   const queryClient = useQueryClient()
   const [items, setItems] = useState<Item[]>([])
-  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editingItem, setEditingItem] = useState<Item | null>(null)
   const [savingItemId, setSavingItemId] = useState<string | null>(null)
   const stableKeysRef = useRef<Map<string, string>>(new Map())
 
@@ -164,7 +150,7 @@ export default function DemoPage() {
     }
   }, [items])
 
-  // Handle adding a new item
+  // Handle adding a new item - creates item then opens edit dialog
   const handleNewItem = () => {
     const newId = generateId()
     const stableKey = `stable-${Date.now()}`
@@ -196,22 +182,20 @@ export default function DemoPage() {
       return [newItem, ...updatedItems]
     })
 
-    setEditingItemId(newId)
+    // Open edit dialog for the new item
+    setEditingItem(newItem)
     toast.success("New item created")
   }
 
-  // Handle editing an item
-  const handleEdit = (id: string) => {
-    setEditingItemId(id)
-  }
+  // Handle saving an item from the edit dialog
+  const handleSaveItem = async (data: { title: string; description: string }) => {
+    if (!editingItem) return
 
-  // Handle saving an item with optimistic update
-  const handleSave = async (id: string, data: { title: string; description: string }) => {
-    setSavingItemId(id)
+    setSavingItemId(editingItem.id)
 
     try {
-      await updateItemMutation.mutateAsync({ id, ...data })
-      setEditingItemId(null)
+      await updateItemMutation.mutateAsync({ id: editingItem.id, ...data })
+      setEditingItem(null)
       toast.success("Item saved successfully")
     } catch (error) {
       toast.error("Failed to save item - changes reverted")
@@ -221,31 +205,12 @@ export default function DemoPage() {
     }
   }
 
-  // Handle canceling edit
-  const handleCancel = (id: string) => {
-    const item = items.find((i) => i.id === id)
-
-    // If it's a new item with no content, remove it
-    if (item && !item.title && !item.description) {
-      setItems((prev) => prev.filter((i) => i.id !== id))
-      queryClient.setQueryData<Item[]>(['items'], (old = []) => old.filter((i) => i.id !== id))
-      stableKeysRef.current.delete(id)
-      toast.info("Empty item removed")
-    }
-
-    setEditingItemId(null)
-  }
-
   // Handle deleting an item with optimistic update
   const handleDelete = async (id: string) => {
     try {
       await deleteItemMutation.mutateAsync({ id })
 
       stableKeysRef.current.delete(id)
-
-      if (editingItemId === id) {
-        setEditingItemId(null)
-      }
 
       toast.success("Item deleted")
     } catch (error) {
@@ -384,15 +349,11 @@ export default function DemoPage() {
                 <ReorderableItem
                   key={stableKey}
                   item={item}
-                  editingItemId={editingItemId}
-                  onEdit={handleEdit}
-                  onSave={handleSave}
-                  onCancel={handleCancel}
-                  onDelete={handleDelete}
-                  onDuplicate={handleDuplicate}
-                  onFilesAdded={handleFilesAdded}
-                  onFileRemove={handleFileRemove}
-                  autoFocus={editingItemId === item.id}
+                  onEdit={() => setEditingItem(item)}
+                  onDelete={() => handleDelete(item.id)}
+                  onDuplicate={() => handleDuplicate(item.id)}
+                  onFilesAdded={(files) => handleFilesAdded(item.id, files)}
+                  onFileRemove={(attachmentId) => handleFileRemove(item.id, attachmentId)}
                   isSaving={savingItemId === item.id}
                 />
               )
@@ -409,7 +370,7 @@ export default function DemoPage() {
             <strong>Persistence:</strong> Items saved to localStorage
           </p>
           <p>
-            <strong>Keyboard shortcuts:</strong> Enter to save, Escape to cancel
+            <strong>Editing:</strong> Click menu → Edit to open the edit dialog
           </p>
           <p className="mt-2 text-primary">
             <strong>True Single-Folder Architecture:</strong> All components imported from @/_barron-agency/
@@ -417,6 +378,15 @@ export default function DemoPage() {
         </div>
       </div>
       </div>
+
+      {/* Edit Item Dialog */}
+      <EditItemDialog
+        open={editingItem !== null}
+        onOpenChange={(open) => !open && setEditingItem(null)}
+        title={editingItem?.title || ''}
+        description={editingItem?.description || ''}
+        onSave={handleSaveItem}
+      />
     </ToastProvider>
   )
 }

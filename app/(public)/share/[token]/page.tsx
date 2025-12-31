@@ -154,7 +154,6 @@ export default function SharedClaimPage({
                         itemId={item.id}
                         title={item.title}
                         description={item.description}
-                        editable={false}
                         readOnly={true}
                         attachments={attachments}
                       />
