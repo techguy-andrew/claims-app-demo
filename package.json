@@ -11,7 +11,9 @@
     "stop-servers": "tsx app/barron-agency/scripts/stop-servers.ts",
     "push:client": "tsx _barron-agency/scripts/push-to-github/push-client.ts",
     "push:demo": "tsx _barron-agency/scripts/push-to-github/push-demo.ts",
-    "push:all": "tsx _barron-agency/scripts/push-to-github/push-all.ts"
+    "push:all": "tsx _barron-agency/scripts/push-to-github/push-all.ts",
+    "migrate:heic:dry": "npx tsx scripts/migrate-heic-to-jpeg.ts --dry-run",
+    "migrate:heic": "npx tsx scripts/migrate-heic-to-jpeg.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.940.0",
@@ -22,6 +24,7 @@
     "cloudinary": "^2.5.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
+    "heic-convert": "^2.1.0",
     "next": "16.0.7",
     "react": "19.2.1",
     "react-dom": "19.2.1",

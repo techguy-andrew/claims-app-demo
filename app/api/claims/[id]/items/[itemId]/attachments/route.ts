@@ -2,8 +2,22 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadToR2, getPublicUrl } from "@/lib/r2";
 import sharp from "sharp";
+import heicConvert from "heic-convert";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+
+/**
+ * Check if a file is HEIC/HEIF format (iPhone photos)
+ */
+function isHeicFile(mimeType: string, filename: string): boolean {
+  const lowerName = filename.toLowerCase();
+  return (
+    mimeType === "image/heic" ||
+    mimeType === "image/heif" ||
+    lowerName.endsWith(".heic") ||
+    lowerName.endsWith(".heif")
+  );
+}
 
 /**
  * POST /api/claims/[id]/items/[itemId]/attachments
@@ -41,18 +55,42 @@ export async function POST(
       );
     }
 
+    // Get original file data
+    let buffer = Buffer.from(await file.arrayBuffer());
+    let processedMimeType = file.type;
+    let processedFilename = file.name;
+    let processedExt = file.name.split(".").pop() || "bin";
+
+    // Convert HEIC/HEIF to JPEG (browsers can't render HEIC)
+    if (isHeicFile(file.type, file.name)) {
+      try {
+        console.log(`Converting HEIC file: ${file.name}`);
+        const jpegBuffer = await heicConvert({
+          buffer: buffer,
+          format: "JPEG",
+          quality: 0.9,
+        });
+        buffer = Buffer.from(jpegBuffer);
+        processedMimeType = "image/jpeg";
+        processedFilename = file.name.replace(/\.heic$/i, ".jpg").replace(/\.heif$/i, ".jpg");
+        processedExt = "jpg";
+        console.log(`HEIC conversion successful: ${processedFilename}`);
+      } catch (heicError) {
+        console.error("HEIC conversion failed:", heicError);
+        // Continue with original - will fail to display but data preserved
+      }
+    }
+
     // Generate unique key
-    const ext = file.name.split(".").pop() || "bin";
     const randomId = Math.random().toString(36).substring(2, 10);
-    const key = `claims/${claimId}/${itemId}/${Date.now()}-${randomId}.${ext}`;
+    const key = `claims/${claimId}/${itemId}/${Date.now()}-${randomId}.${processedExt}`;
 
     // Upload to R2
-    const buffer = Buffer.from(await file.arrayBuffer());
-    await uploadToR2(key, buffer, file.type);
+    await uploadToR2(key, buffer, processedMimeType);
 
     // Generate URLs
     const url = getPublicUrl(key);
-    const isImage = file.type.startsWith("image/");
+    const isImage = processedMimeType.startsWith("image/");
     let thumbnailUrl: string | null = null;
 
     // Generate and upload thumbnail for images only
@@ -77,16 +115,16 @@ export async function POST(
     const attachment = await prisma.attachment.create({
       data: {
         itemId,
-        filename: file.name,
+        filename: processedFilename,
         url,
         thumbnailUrl,
-        mimeType: file.type,
-        size: file.size,
+        mimeType: processedMimeType,
+        size: buffer.length, // Use converted size
         width: null,
         height: null,
         publicId: key,
         version: null,
-        format: ext,
+        format: processedExt,
       },
     });
 
