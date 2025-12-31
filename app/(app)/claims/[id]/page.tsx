@@ -610,7 +610,7 @@ export default function ClaimDetailPage({
                   axis="y"
                   values={displayItems}
                   onReorder={handleReorder}
-                  className="flex flex-col gap-4 w-full touch-pan-y select-none"
+                  className="flex flex-col gap-4 w-full touch-pan-y"
                 >
                   {displayItems.map((item) => {
                     const stableKey = stableKeysRef.current.get(item.id) || item.id
