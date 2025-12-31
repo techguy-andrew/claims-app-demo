@@ -150,16 +150,6 @@ export function ItemCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attachmentsKey])
 
-  // Auto-focus title input when entering edit mode (for new items)
-  React.useEffect(() => {
-    if (isEditing && titleInputRef.current) {
-      // Small delay to ensure the input is rendered
-      setTimeout(() => {
-        titleInputRef.current?.focus()
-      }, 50)
-    }
-  }, [isEditing])
-
   // Handle click outside for dropdown menu
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -314,12 +304,10 @@ export function ItemCard({
                   }
                 }}
                 placeholder={titlePlaceholder}
-                autoFocus
                 className={cn(
-                  "font-semibold leading-none tracking-tight outline-none",
-                  "w-full bg-transparent border-b border-input focus:border-primary",
-                  "text-base sm:text-lg lg:text-xl",
-                  "py-1"
+                  "font-semibold leading-none tracking-tight outline-none border-none",
+                  "w-full bg-transparent",
+                  "text-base sm:text-lg lg:text-xl"
                 )}
               />
             ) : (
@@ -353,10 +341,9 @@ export function ItemCard({
                 placeholder={descriptionPlaceholder}
                 rows={2}
                 className={cn(
-                  "text-muted-foreground outline-none resize-none",
-                  "w-full bg-transparent border-b border-input focus:border-primary",
-                  "text-sm sm:text-base",
-                  "py-1"
+                  "text-muted-foreground outline-none border-none resize-none",
+                  "w-full bg-transparent",
+                  "text-sm sm:text-base"
                 )}
               />
             ) : (
