@@ -131,6 +131,8 @@ export function ItemCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false)
   const titleRef = React.useRef<HTMLDivElement>(null)
   const descriptionRef = React.useRef<HTMLDivElement>(null)
+  const titleInputRef = React.useRef<HTMLInputElement>(null)
+  const descriptionInputRef = React.useRef<HTMLTextAreaElement>(null)
   const menuRef = React.useRef<HTMLDivElement>(null)
   const menuTriggerRef = React.useRef<HTMLButtonElement>(null)
 
@@ -148,15 +150,15 @@ export function ItemCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attachmentsKey])
 
-  // Auto-focus title ONLY on initial mount when autoFocus is true (for new items)
+  // Auto-focus title input when entering edit mode (for new items)
   React.useEffect(() => {
-    if (autoFocus && titleRef.current) {
+    if (isEditing && titleInputRef.current) {
+      // Small delay to ensure the input is rendered
       setTimeout(() => {
-        titleRef.current?.focus()
+        titleInputRef.current?.focus()
       }, 50)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // Run only once on mount
+  }, [isEditing])
 
   // Handle click outside for dropdown menu
   React.useEffect(() => {
@@ -190,41 +192,29 @@ export function ItemCard({
   }, [menuOpen])
 
   const handleEdit = () => {
+    // Store current values as original for cancel comparison
+    setOriginalTitle(tempTitle)
+    setOriginalDescription(tempDescription)
     setIsEditing(true)
-    setOriginalTitle(titleRef.current?.textContent || safeTitle)
-    setOriginalDescription(descriptionRef.current?.textContent || safeDescription)
     onEdit?.()
   }
 
   const handleSave = () => {
-    if (titleRef.current && descriptionRef.current) {
-      const newTitle = titleRef.current.textContent || ''
-      const newDescription = descriptionRef.current.textContent || ''
-      onSave?.({ title: newTitle, description: newDescription })
-      setTempTitle(newTitle)
-      setTempDescription(newDescription)
-      // Clear cursor position memory
-      titleRef.current.blur()
-      descriptionRef.current.blur()
-    }
+    // Read from controlled state (works with both input/textarea)
+    onSave?.({ title: tempTitle, description: tempDescription })
     setIsEditing(false)
   }
 
   const checkForChanges = () => {
-    const currentTitle = titleRef.current?.textContent || ''
-    const currentDescription = descriptionRef.current?.textContent || ''
-    return currentTitle !== originalTitle || currentDescription !== originalDescription
+    // Compare current state values with original values
+    return tempTitle !== originalTitle || tempDescription !== originalDescription
   }
 
   const handleCancel = () => {
-    // Check current content in the editable fields
-    const currentTitle = titleRef.current?.textContent || ''
-    const currentDescription = descriptionRef.current?.textContent || ''
-
     // For new items (no initial content), check if user has typed anything
     if (!safeTitle && !safeDescription) {
       // If user typed something, show confirmation
-      if (currentTitle.trim() || currentDescription.trim()) {
+      if (tempTitle.trim() || tempDescription.trim()) {
         setShowCancelConfirm(true)
         return
       }
@@ -244,13 +234,9 @@ export function ItemCard({
   }
 
   const performCancel = () => {
-    // Restore original content
-    if (titleRef.current && descriptionRef.current) {
-      titleRef.current.textContent = originalTitle
-      descriptionRef.current.textContent = originalDescription
-      titleRef.current.blur()
-      descriptionRef.current.blur()
-    }
+    // Restore original content from state
+    setTempTitle(originalTitle)
+    setTempDescription(originalDescription)
     setIsEditing(false)
     onCancel?.()
   }
@@ -268,19 +254,6 @@ export function ItemCard({
   const handleConfirmDelete = () => {
     setShowDeleteConfirm(false)
     onDelete?.()
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      if (isEditing) {
-        handleSave()
-      }
-    }
-    if (e.key === 'Escape' && isEditing) {
-      e.preventDefault()
-      handleCancel()
-    }
   }
 
   const handleMenuItemClick = (action: () => void) => {
@@ -324,46 +297,82 @@ export function ItemCard({
             onDoubleClick={() => editable && !isEditing && !readOnly && handleEdit()}
           >
             {/* Title */}
-            <div
-              ref={titleRef}
-              contentEditable={isEditing}
-              suppressContentEditableWarning
-              onKeyDown={handleKeyDown}
-              data-placeholder={isEditing ? titlePlaceholder : undefined}
-              className={cn(
-                "text-2xl font-semibold leading-none tracking-tight outline-none",
-                "min-h-[1.75rem]",
-                "leading-7",
-                "text-base sm:text-lg lg:text-xl",
-                "break-words w-full",
-                isEditing ? "cursor-text" : "select-text",
-                isEditing && "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/50",
-                !safeTitle && !isEditing && "text-muted-foreground italic"
-              )}
-            >
-              {safeTitle || (isEditing ? '' : 'N/A')}
-            </div>
+            {isEditing ? (
+              <input
+                ref={titleInputRef}
+                type="text"
+                value={tempTitle}
+                onChange={(e) => setTempTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleSave()
+                  }
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    handleCancel()
+                  }
+                }}
+                placeholder={titlePlaceholder}
+                autoFocus
+                className={cn(
+                  "font-semibold leading-none tracking-tight outline-none",
+                  "w-full bg-transparent border-b border-input focus:border-primary",
+                  "text-base sm:text-lg lg:text-xl",
+                  "py-1"
+                )}
+              />
+            ) : (
+              <div
+                ref={titleRef}
+                className={cn(
+                  "text-2xl font-semibold leading-none tracking-tight",
+                  "min-h-[1.75rem] leading-7",
+                  "text-base sm:text-lg lg:text-xl",
+                  "break-words w-full select-text",
+                  !safeTitle && "text-muted-foreground italic"
+                )}
+              >
+                {safeTitle || 'N/A'}
+              </div>
+            )}
 
             {/* Description */}
-            <div
-              ref={descriptionRef}
-              contentEditable={isEditing}
-              suppressContentEditableWarning
-              onKeyDown={handleKeyDown}
-              data-placeholder={isEditing ? descriptionPlaceholder : undefined}
-              className={cn(
-                "text-sm text-muted-foreground outline-none",
-                "min-h-[1.25rem]",
-                "leading-5",
-                "text-sm sm:text-base",
-                "break-words w-full",
-                isEditing ? "cursor-text" : "select-text",
-                isEditing && "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/50",
-                !safeDescription && !isEditing && "text-muted-foreground italic"
-              )}
-            >
-              {safeDescription || (isEditing ? '' : 'N/A')}
-            </div>
+            {isEditing ? (
+              <textarea
+                ref={descriptionInputRef}
+                value={tempDescription}
+                onChange={(e) => setTempDescription(e.target.value)}
+                onKeyDown={(e) => {
+                  // Only handle Escape for textarea (Enter creates newlines)
+                  if (e.key === 'Escape') {
+                    e.preventDefault()
+                    handleCancel()
+                  }
+                }}
+                placeholder={descriptionPlaceholder}
+                rows={2}
+                className={cn(
+                  "text-muted-foreground outline-none resize-none",
+                  "w-full bg-transparent border-b border-input focus:border-primary",
+                  "text-sm sm:text-base",
+                  "py-1"
+                )}
+              />
+            ) : (
+              <div
+                ref={descriptionRef}
+                className={cn(
+                  "text-sm text-muted-foreground",
+                  "min-h-[1.25rem] leading-5",
+                  "text-sm sm:text-base",
+                  "break-words w-full select-text",
+                  !safeDescription && "text-muted-foreground italic"
+                )}
+              >
+                {safeDescription || 'N/A'}
+              </div>
+            )}
           </div>
         </div>
 
