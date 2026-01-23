@@ -5,9 +5,12 @@
   "scripts": {
     "postinstall": "prisma generate",
     "dev": "next dev",
-    "build": "prisma db push && next build",
+    "build": "prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
+    "db:migrate:dev": "dotenv -e .env.local -- prisma migrate dev",
+    "db:push": "dotenv -e .env.local -- prisma db push",
+    "db:studio": "dotenv -e .env.local -- prisma studio",
     "stop-servers": "tsx app/barron-agency/scripts/stop-servers.ts",
     "push:client": "tsx _barron-agency/scripts/push-to-github/push-client.ts",
     "push:demo": "tsx _barron-agency/scripts/push-to-github/push-demo.ts",
@@ -21,13 +24,13 @@
     "@prisma/client": "6.15.0",
     "@react-pdf/renderer": "^4.3.1",
     "@tanstack/react-query": "^5.90.10",
-    "cloudinary": "^2.5.1",
+    "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
     "heic-convert": "^2.1.0",
-    "next": "16.0.7",
-    "react": "19.2.1",
-    "react-dom": "19.2.1",
+    "next": "16.1.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
     "react-dropzone": "^14.3.8",
     "react-pdf": "^10.2.0",
     "sharp": "^0.34.5",
@@ -38,11 +41,17 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.0.7",
+    "eslint-config-next": "16.1.4",
     "prisma": "6.15.0",
     "tailwindcss": "^4",
     "tsx": "^4.20.6",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "lodash": ">=4.17.23"
+    }
   }
 }
